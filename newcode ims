@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockVault v1.0</title>
+  <link rel="stylesheet" href="ims_design.css" />
+</head>
+<body>
+  <header class="top-bar">
+    <span class="logo">Inventory Management System</span>
+    <div class="controls">
+      <input type="text" placeholder="Find item..." class="search-bar" id="searchInput" />
+      <button type="submit" name="searchbtn" class="btn search-btn">Search</button>
+      <button type="button" id="openPopup" class="btn add-btn">+ New Entry</button>
+    </div>
+  </header>
+
+  <div class="spacer"></div>
+
+  <section class="inventory-section">
+    <h2 class="section-title">Available Stock</h2>
+    <div class="filter-area">
+      <div class="label-row">
+        <label for="filter-name">Filter:</label>
+        <label for="sort-date">Arrange:</label>
+      </div>
+      <div class="action-row">
+        <button name="filter-name" class="btn filter-btn" id="filterByName">By Name</button>
+        <button name="sort-date" class="btn sort-btn" id="sortByDate">By Date (Newest)</button>
+        <button name="sort-price" class="btn sort-btn" id="sortByPrice">By Price</button>
+      </div>
+    </div>
+    <div class="spacer-sm"></div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:15%">Image</th>
+            <th style="width:20%">Item Name</th>
+            <th style="width:25%">Description</th>
+            <th style="width:10%">Stock</th>
+            <th style="width:10%">Unit Price</th>
+            <th style="width:20%">Added On</th>
+            <th style="width:15%">Options</th>
+          </tr>
+        </thead>
+        <tbody id="inventoryBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div id="popupForm" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" id="closePopup">&times;</span>
+      <h3 id="formTitle">Add New Inventory Item</h3>
+      <form id="itemForm">
+        <label for="itemName">Item Name</label>
+        <input type="text" id="itemName" name="itemName" required>
+
+        <label for="itemDesc">Description</label>
+        <input type="text" id="itemDesc" name="itemDesc">
+
+        <label for="itemQty">Quantity</label>
+        <input type="number" id="itemQty" name="itemQty" required>
+
+        <label for="itemPrice">Price</label>
+        <input type="number" id="itemPrice" name="itemPrice" step="0.01" required>
+
+        <label for="itemImage">Attach Image</label>
+        <input type="file" id="itemImage" name="itemImage" accept="image/*">
+
+        <button type="submit" class="btn add-btn" id="formSubmitBtn">Add Item</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const openBtn = document.getElementById('openPopup');
+    const closeBtn = document.getElementById('closePopup');
+    const modal = document.getElementById('popupForm');
+    const itemForm = document.getElementById('itemForm');
+    const inventoryBody = document.getElementById('inventoryBody');
+    const formTitle = document.getElementById('formTitle');
+    const formSubmitBtn = document.getElementById('formSubmitBtn');
+    const itemImageInput = document.getElementById('itemImage');
+
+    let editingRow = null;
+
+    openBtn.onclick = () => {
+      formTitle.textContent = 'Add New Inventory Item';
+      formSubmitBtn.textContent = 'Add Item';
+      itemForm.reset();
+      editingRow = null;
+      modal.style.display = 'block';
+    };
+
+    closeBtn.onclick = () => modal.style.display = 'none';
+    window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+
+    itemForm.onsubmit = function(e) {
+      e.preventDefault();
+
+      const name = document.getElementById('itemName').value.trim();
+      const desc = document.getElementById('itemDesc').value.trim();
+      const qty = parseInt(document.getElementById('itemQty').value.trim());
+      const price = parseFloat(document.getElementById('itemPrice').value.trim()).toFixed(2);
+      const date = new Date().toLocaleDateString();
+      const imageFile = itemImageInput.files[0];
+
+      if (qty <= 0) {
+        alert("Quantity must be greater than 0.");
+        return;
+      }
+
+      if (price <= 0) {
+        alert("Price must be greater than 0.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const imageSrc = e.target.result;
+
+        // Save or edit item with image
+        const item = {
+          name,
+          description: desc,
+          quantity: qty,
+          price: `₱${price}`,
+          date,
+          image: imageSrc // store the base64 image
+        };
+
+        if (editingRow !== null) {
+          editingRow.cells[0].innerHTML = `<img src="${imageSrc}" alt="${name}" style="width: 50px; height: 50px;">`;
+          editingRow.cells[1].textContent = name;
+          editingRow.cells[2].textContent = desc;
+          editingRow.cells[3].textContent = qty;
+          editingRow.cells[4].textContent = `₱${price}`;
+          editingRow.cells[5].textContent = date;
+          editingRow.dataset.name = name.toLowerCase();
+          editingRow.dataset.date = new Date();
+          editingRow = null;
+        } else {
+          const newRow = document.createElement('tr');
+          newRow.dataset.name = name.toLowerCase();
+          newRow.dataset.date = new Date();
+          newRow.innerHTML = `
+            <td><img src="${imageSrc}" alt="${name}" style="width: 50px; height: 50px;"></td>
+            <td>${name}</td>
+            <td>${desc}</td>
+            <td>${qty}</td>
+            <td>₱${price}</td>
+            <td>${date}</td>
+            <td>
+              <button class="btn" style="background-color: #ffc107; color: white;" onclick="editItem(this)">Edit</button>
+              <button class="btn" style="background-color: #dc3545; color: white;" onclick="deleteItem(this)">Delete</button>
+            </td>
+          `;
+          inventoryBody.appendChild(newRow);
+        }
+
+        itemForm.reset();
+        modal.style.display = 'none';
+        saveItems();
+      };
+
+      if (imageFile) {
+        reader.readAsDataURL(imageFile);
+      } else {
+        alert("Please select an image to attach.");
+      }
+    };
+
+    function editItem(button) {
+      const row = button.parentElement.parentElement;
+      editingRow = row;
+      formTitle.textContent = 'Edit Inventory Item';
+      formSubmitBtn.textContent = 'Update Item';
+      document.getElementById('itemName').value = row.cells[1].textContent;
+      document.getElementById('itemDesc').value = row.cells[2].textContent;
+      document.getElementById('itemQty').value = row.cells[3].textContent;
+      document.getElementById('itemPrice').value = row.cells[4].textContent.replace('₱', '');
+      modal.style.display = 'block';
+    }
+
+    function deleteItem(button) {
+      const confirmDelete = confirm("Are you sure you want to delete this item?");
+      if (confirmDelete) {
+        button.closest('tr').remove();
+        saveItems();
+      }
+    }
+
+    function saveItems() {
+      const itemsData = [];
+      const rows = document.querySelectorAll('#inventoryBody tr');
+      rows.forEach(row => {
+        const item = {
+          name: row.cells[1].textContent,
+          description: row.cells[2].textContent,
+          quantity: row.cells[3].textContent,
+          price: row.cells[4].textContent,
+          date: row.cells[5].textContent,
+          image: row.cells[0].querySelector('img').src // save image as base64
+        };
+        itemsData.push(item);
+      });
+      localStorage.setItem('inventoryItems', JSON.stringify(itemsData));
+    }
+
+    function loadItems() {
+      const itemsData = JSON.parse(localStorage.getItem('inventoryItems')) || [];
+      itemsData.forEach(item => {
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+          <td><img src="${item.image || ''}" alt="${item.name}" style="width: 50px; height: 50px;"></td>
+          <td>${item.name}</td>
+          <td>${item.description}</td>
+          <td>${item.quantity}</td>
+          <td>${item.price}</td>
+          <td>${item.date}</td>
+          <td>
+            <button class="btn" style="background-color: #ffc107; color: white;" onclick="editItem(this)">Edit</button>
+            <button class="btn" style="background-color: #dc3545; color: white;" onclick="deleteItem(this)">Delete</button>
+          </td>
+        `;
+        inventoryBody.appendChild(newRow);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadItems);
+  </script>
+</body>
+</html>
